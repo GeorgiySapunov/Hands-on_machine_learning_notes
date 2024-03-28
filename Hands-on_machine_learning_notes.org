@@ -504,7 +504,36 @@ sorted(zip(feature_importances,
 #+end_src
 sklearn.feature_selection.SelectFromModel transformer can automatically drop the least useful features for you.
 **** Evaluate Your System on the Test Set
+95% confidence interval for the generalization error using scipy.stats.t.interval()
+#+begin_src python
+from scipy import stats
+
+confidence = 0.95
+squared_errors = (final_predictions - y_test) ** 2
+np.sqrt(stats.t.interval(confidence, len(squared_errors) - 1,
+                         loc=squared_errors.mean(),
+                         scale=stats.sem(squared_errors)))
+#+end_src
 *** Launch, Monitor, and Maintain Your System
+To save the model, you can use the joblib library:
+#+begin_src python
+import joblib
+
+joblib.dump(final_model, "my_california_housing_model.pkl")
+#+end_src
+- Import any custom classes and functions the model relies on
+  (which means transferring the code to production).
+- Load the model using joblib
+- Use it to make predictions
+#+begin_src python
+import joblib
+[...] # import KMeans, BaseEstimator, TransformerMixin, rbf_kernel, etc.
+
+# define custom classes and functions
+final_model_reloaded = joblib.load("my_california_housing_model.pkl")
+
+predictions = final_model_reloaded.predict(new_data)
+#+end_src
 *** Try It Out!
 *** Exercises
 1. Try a support vector machine regressor (sklearn.svm.SVR) with various hyperparameters, such as kernel="linear" (with various values for the C hyperparameter) or kernel="rbf" (with various values for the C and gamma hyperparameters). Note that support vector machines don’t scale well to large datasets, so you should probably train your model on just the first 5,000 instances of the training set and use only 3-fold cross-validation, or else it will take hours. Don’t worry about what the hyperparameters mean for now; we’ll discuss them in Chapter 5. How does the best SVR predictor perform?
