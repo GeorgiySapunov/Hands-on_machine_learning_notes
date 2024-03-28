@@ -19,9 +19,13 @@ https://homl.info/colab3
 **** Instance-Based Versus Model-Based Learning
 #+begin_src python
 from sklearn.linear_model import LinearRegression
-model = LinearRegression()
 
+model = LinearRegression()
+#+end_src
+
+#+begin_src python
 from sklearn.neighbors import KNeighborsRegressor
+
 model = KNeighborsRegressor(n_neighbors=3)
 #+end_src
 *** Main Challenges of Machine Learning
@@ -105,41 +109,56 @@ import urllib.request
 **** Take a Quick Look at the Data Structure
 #+begin_src python
 import pandas as pd
+
 df = pd.DataFrame(...)
 df.head()
 df.info()
 df["column"].value_counts()
 df.describe()
+#+end_src
 
+#+begin_src python
 import matplotlib.pyplot as plt
+
 df.hist(bins=50, figsize=(12, 8))
 #+end_src
 **** Create a Test Set
 #+begin_src python
 import numpy as np
-from zlib import crc32
+from zlib import crc32  # hash computation
+#+end_src
+
+*Train test split*
+#+begin_src python
 from sklearn.model_selection import train_test_split
+
 train_set, test_set = train_test_split(df, test_size=0.2, random_state=42)
+#+end_src
+
+#+begin_src python
+from sklearn.model_selection import StratifiedShuffleSplit
+# generates n different stratified splits of the same dataset
+# split() method yields the training and test indices
 
 df["column_cat"] = pd.cut(df["column"],
     bins=[0., 1.5, 3.0, 4.5, 6., np.inf],
     labels=[1, 2, 3, 4, 5])
-
-from sklearn.model_selection import StratifiedShuffleSplit
-
 strat_train_set, strat_test_set = train_test_split(
     df, test_size=0.2, stratify=df["column_cat"], random_state=42)
+# you might drop "column_cat" columns here
 #+end_src
 *** Explore and Visualize the Data to Gain Insights
 **** Visualizing Geographical Data
 **** Look for Correlations
 #+begin_src python
-corr_matrix = df.corr()
+corr_matrix = df.corr()  # standard correlation coefficient (also called Pearson’s r)
 corr_matrix["column"].sort_values(ascending=False)
+#+end_src
 
+#+begin_src python
 from pandas.plotting import scatter_matrix
-columns = ["column1", "column2", "column3"]
-scatter_matrix(housing[attributes], figsize=(12, 8))
+
+scatter_matrix(df, figsize=(12, 8))
 #+end_src
 **** Experiment with Attribute Combinations
 *** Prepare the Data for Machine Learning Algorithms
@@ -147,78 +166,114 @@ scatter_matrix(housing[attributes], figsize=(12, 8))
 df = df.drop("column", axis=1))
 #+end_src
 **** Clean the Data
-You have three options to fix missing features:
-1. Get rid of the corresponding districts.
-2. Get rid of the whole attribute.
-3. Set the missing values to some value (zero, the mean, the median, etc.). This is called imputation.
-
-You can accomplish these easily using the Pandas DataFrame’s dropna(), drop(), and fillna() methods:
+Pandas DataFrame’s dropna(), drop(), and fillna() methods:
 #+begin_src python
-housing.dropna(subset=["total_bedrooms"], inplace=True)  # option 1
-housing.drop("total_bedrooms", axis=1)  # option 2
-median = housing["total_bedrooms"].median()  # option 3
-housing["total_bedrooms"].fillna(median, inplace=True)
+housing.dropna(subset=["column"], inplace=True)  # option 1: Get rid of the corresponding districts.
+housing.drop("column", axis=1)  # option 2: Get rid of the whole attribute.
+housing["column"].fillna(housing["total_bedrooms"].median(), inplace=True) # option 3: Imputation. Set the missing values to some value (zero, the mean, the median, etc.).
+#+end_src
 
+#+begin_src python
 from sklearn.impute import SimpleImputer
+
 imputer = SimpleImputer(strategy="median")  # (strategy="mean"), (strategy="most_frequent"), ( strategy="constant", fill_value=…)
-df_num = df.select_dtypes(include=[np.number])
+df_num = df.select_dtypes(include=[np.number])  # select columns with numbers
 imputer.fit(df_num)
-imputer.statistics_
+imputer.statistics_  # median of each attribute
 X = imputer.transform(df_num)
 #+end_src
 
+You can try KNNImputer and IterativeImputer in sklearn.impute
+
 *Scikit-Learn Design*
-- *Consistency*
+1. *Consistency*
    All objects share a consistent and simple interface:
-   1. Estimators [fit()]
-   2. Transformers [transform()]
-   3. Predictors [predict()]
-- *Inspection*
+   - Estimators [fit()]
+   - Transformers [transform()]
+   - Predictors [predict()]
+2. *Inspection*
    All the estimator’s hyperparameters are accessible directly via public instance variables (e.g., imputer.strategy), and all the estimator’s learned parameters are accessible via public instance variables with an underscore suffix (e.g., imputer.statistics_).
+
+NumPy output back to DataFrame:
+#+begin_src python
+X = imputer.transform(column_num)
+df_tr = pd.DataFrame(X, columns=column_num.columns,
+                     index=column_num.index)
+#+end_src
 **** Handling Text and Categorical Attributes
+*Ordinal Encoder*
 #+begin_src python
 from sklearn.preprocessing import OrdinalEncoder
+
 ordinal_encoder = OrdinalEncoder()
 housing_cat_encoded = ordinal_encoder.fit_transform(housing_cat)
+#+end_src
 
+*One Hot Encoder*
+#+begin_src python
 from sklearn.preprocessing import OneHotEncoder
+
 cat_encoder = OneHotEncoder()
 housing_cat_1hot = cat_encoder.fit_transform(housing_cat)
 
-pd.get_dummies(df_test)  # OneHotEncoder is smarter: it will detect the unknown category and raise an exception.
+cat_encoder.categories_ # list of categories
 
-# If you prefer, you can set the handle_unknown hyperparameter to "ignore", in which case it will just represent the unknown category with zeros:
+pd.get_dummies(df)  # OneHotEncoder is smarter: it will detect the unknown category and raise an exception.
+
+# If you prefer, you can set the handle_unknown hyperparameter to "ignore"
+# it will just represent the unknown category with zeros:
 cat_encoder.handle_unknown = "ignore"
 
 # the estimator stores the column names in the feature_names_in_ attribute.
-cat_encoder.feature_names_in_
-cat_encoder.get_feature_names_out()
-df_output = pd.DataFrame(cat_encoder.transform(df_test_unknown),
-    columns=cat_encoder.get_feature_names_out(),
-    index=df_test_unknown.index)
+cat_encoder.feature_names_in_ # initial column names
+cat_encoder.get_feature_names_out() # new columns
+df_output = pd.DataFrame(cat_encoder.transform(df),
+                         columns=cat_encoder.get_feature_names_out(),
+                         index=df.index)
 #+end_src
 **** Feature Scaling and Transformation
+*Normalization*. Values are shifted and rescaled.
 #+begin_src python
 from sklearn.preprocessing import MinMaxScaler
-min_max_scaler = MinMaxScaler(feature_range=(-1, 1))
-housing_num_min_max_scaled = min_max_scaler.fit_transform(housing_num)
 
+min_max_scaler = MinMaxScaler(feature_range=(-1, 1))
+housing_num_min_max_scaled = min_max_scaler.fit_transform(df_num)
+#+end_src
+
+*Standardization*, values have a 0 mean and standard deviation is equal to 1.
+#+begin_src python
 from sklearn.preprocessing import StandardScaler
+
+# with_mean=False to prevent sparse matrix convertion to a dense matrix
+# just divides the data by the standard deviation
 std_scaler = StandardScaler()
 housing_num_std_scaled = std_scaler.fit_transform(housing_num)
 #+end_src
-Radial basis function (RBF)—any function that depends only on the distance between the input value and a fixed point.
+*Heavy tails*
+1. Make the feature distribution roughly symmetrical
+   - square root
+   - raising to a power between 0 and 1
+   - replacing with logarithm
+2. Bucketizing
+
+*Multimodal distribution* (two or more clear peaks)
+1. Bucketizing with encoding (e.g. OneHotEncoder)
+2. Distances between the value and a mode (RBF)
+
+Radial basis function (*RBF*)—any function that depends only on the distance between the input value and a fixed point.
 
 Gaussian RBF: exp(–γ(x–35)^2)
 
-The hyperparameter γ determines how quickly the similarity measure decays as x moves away from 35.
+The hyperparameter γ (gamma) determines how quickly the similarity measure decays as x moves away from 35.
 #+begin_src python
 from sklearn.metrics.pairwise import rbf_kernel
+
 age_simil_35 = rbf_kernel(housing[["housing_median_age"]], [[35]], gamma=0.1)
 #+end_src
 [[./img/2-18.png]]
 Figure 2-18. Gaussian RBF feature measuring the similarity between the housing median age and 35
 
+*Going back to original scale*
 Most of Scikit-Learn’s transformers have an inverse_transform() method.
 #+begin_src python
 from sklearn.linear_model import LinearRegression
@@ -233,7 +288,7 @@ some_new_data = df2
 scaled_predictions = model.predict(some_new_data)
 predictions = target_scaler.inverse_transform(scaled_predictions)
 #+end_src
-A simpler option is to use a TransformedTargetRegressor.
+A simpler option is to use a *TransformedTargetRegressor*.
 #+begin_src python
 from sklearn.compose import TransformedTargetRegressor
 
@@ -246,15 +301,70 @@ predictions = model.predict(some_new_data)
 #+begin_src python
 from sklearn.preprocessing import FunctionTransformer
 
+# Log example (with inverse_func=)
 log_transformer = FunctionTransformer(np.log, inverse_func=np.exp)
-log_pop = log_transformer.transform(df[["column"]])
+log_feature = log_transformer.transform(df[["column"]])
+
+# RBF example (with kw_args=)
+rbf_transformer = FunctionTransformer(rbf_kernel,
+                                      kw_args=dict(Y=[[35.]], gamma=0.1))
+rbf_feature = rbf_transformer.transform(df[["column"]])
 #+end_src
 
-FunctionTransformer is very handy, but what if you would like your transformer to be trainable, learning some parameters in the fit() method and using them later in the transform() method? For this, you need to write a custom class.
+FunctionTransformer is not trainable.
+To learn parameters in the fit() method and to use them in transform() method you need to write a custom class.
+- fit_transform() by adding TransformerMixin as a base class
+- get_params() and set_params() for automatic hyperparameter tuning by adding BaseEstimator as a base class (avoid using *args and **kwargs in the constructor)
 #+begin_src python
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.utils.validation import check_array, check_is_fitted
-from sklearn.cluster import KMeans
+from sklearn.utils.validation import check_array, check_is_fitted # to validate the inputs
+
+class StandardScalerClone(BaseEstimator, TransformerMixin):
+    def __init__(self, with_mean=True): # no *args or **kwargs!
+        self.with_mean = with_mean
+
+    def fit(self, X, y=None): # y is required even though we don't use it
+        X = check_array(X) # checks that X is an array with finite float values
+        self.mean_ = X.mean(axis=0)
+        self.scale_ = X.std(axis=0)
+        self.n_features_in_ = X.shape[1] # every estimator stores this in fit()
+        return self # always return self!
+    def transform(self, X):
+        check_is_fitted(self) # looks for learned attributes (with trailing _)
+        X = check_array(X)
+        assert self.n_features_in_ == X.shape[1]
+        if self.with_mean:
+            X = X - self.mean_
+        return X / self.scale_
+#+end_src
+also check:
+- feature_names_in_ in the fit()
+- get_feature_names_out()
+- inverse_transform()
+
+Uses k-means to locate the clusters, then measures the Gaussian RBF similarity between each point and all cluster centers.
+#+begin_src python
+from sklearn.cluster import KMeans # k-means is a clustering algorithm
+
+class ClusterSimilarity(BaseEstimator, TransformerMixin):
+    def __init__(self, n_clusters=10, gamma=1.0, random_state=None):
+        self.n_clusters = n_clusters
+        self.gamma = gamma
+        self.random_state = random_state
+
+    def fit(self, X, y=None, sample_weight=None):
+        self.kmeans_ = KMeans(self.n_clusters, random_state=self.random_state)
+        self.kmeans_.fit(X, sample_weight=sample_weight)
+        return self # always return self!
+    def transform(self, X):
+        return rbf_kernel(X, self.kmeans_.cluster_centers_, gamma=self.gamma)
+    def get_feature_names_out(self, names=None):
+        return [f"Cluster {i} similarity" for i in range(self.n_clusters)]
+#+end_src
+
+Check whether your custom estimator respects Scikit-Learn’s API by passing an instance to *check_estimator()*
+#+begin_src python
+from sklearn.utils.estimator_checks import check_estimator
 #+end_src
 **** Transformation Pipelines
 #+begin_src python
@@ -265,6 +375,7 @@ num_pipeline = Pipeline([
 ])
 
 from sklearn.pipeline import make_pipeline  # If you don’t want to name the transformers
+# Using the names of the transformers’ classes, in lowercase and without underscores (e.g., "simpleimputer"):
 num_pipeline = make_pipeline(SimpleImputer(strategy="median"), StandardScaler()) # afer fit_transform columns=num_pipeline.get_feature_names_out()
 num_prepared = num_pipeline.fit_transform(num)
 # if you want to recover a nice DataFrame, you can use the pipeline’s get_feature_names_out() method.
@@ -273,37 +384,135 @@ df_num_prepared = pd.DataFrame(
     index=num.index)
 #+end_src
 
-applying the appropriate transformations to each column
+Applying the appropriate transformations to each column:
 #+begin_src python
 from sklearn.compose import ColumnTransformer
 
 preprocessing = ColumnTransformer([
     ("num", num_pipeline, num_attribs),
     ("cat", cat_pipeline, cat_attribs),
+    reminder=pipeline_for_reminded_columns
 ])
 #+end_src
 
-A make_column_selector() function that returns a selector function you can use to automatically select all the features of a given type, such as numerical or categorical.
+A make_column_selector() function that returns a selector function you can use to automatically select all the features of a given type, such as numerical or categorical:
 #+begin_src python
 from sklearn.compose import make_column_selector, make_column_transformer
+# "pipeline-1" and "pipeline-2" instead of "num" and "cat"
 
 preprocessing = make_column_transformer(
     (num_pipeline, make_column_selector(dtype_include=np.number)),
     (cat_pipeline, make_column_selector(dtype_include=object)),
 )
+
+df_prepared = preprocessing.fit_transform(df)
+df.get_feature_names_out()
 #+end_src
 *** Select and Train a Model
 **** Train and Evaluate on the Training Set
+
+#+begin_src python
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression
+
+tree_reg = make_pipeline(preprocessing, DecisionTreeRegressor(random_state=42))
+# forest_reg = make_pipeline(preprocessing, RandomForestRegressor(random_state=42)
+# lin_reg = make_pipeline(preprocessing, LinearRegression())
+tree_reg.fit(df, df_labels)
+df_predictions = tree_reg.predict(df)
+#+end_src
+
+Root mean squared error (squared=False)
+#+begin_src python
+from sklearn.metrics import mean_squared_error
+
+lin_rmse = mean_squared_error(df_labels, df_predictions, squared=False)
+#+end_src
 **** Better Evaluation Using Cross-Validation
+- Splits the training set into k nonoverlapping subsets called folds.
+- Trains and evaluates a model k times: 1 fold for evaluation, other folds for training.
+- The result is an array containing the k evaluation scores.
+#+begin_src python
+from sklearn.model_selection import cross_val_score
+
+tree_rmses = -cross_val_score(tree_reg, df, df_labels,
+scoring="neg_root_mean_squared_error", cv=10)
+#+end_src
 *** Fine-Tune Your Model
 **** Grid Search
+#+begin_src python
+from sklearn.model_selection import GridSearchCV
+
+full_pipeline = Pipeline([
+    ("preprocessing", preprocessing),
+    ("random_forest", RandomForestRegressor(random_state=42)),
+])
+param_grid = [
+    {'preprocessing__geo__n_clusters': [5, 8, 10],
+     # preprocessing (ColumnTransformer) -> geo (ClusterSimilarity) -> n_clusters hyperparameter
+     'random_forest__max_features': [4, 6, 8]},
+    {'preprocessing__geo__n_clusters': [10, 15],
+     'random_forest__max_features': [6, 8, 10]},
+]
+grid_search = GridSearchCV(full_pipeline, param_grid, cv=3,
+                           scoring='neg_root_mean_squared_error')
+grid_search.fit(housing, housing_labels)
+#+end_src
+If GridSearchCV is initialized with refit=True (which is the default), then once
+it finds the best estimator using cross-validation, it retrains it on the whole
+training set.
+#+begin_src python
+grid_search.best_params_
+# {'preprocessing__geo__n_clusters': 15, 'random_forest__max_features': 6}
+grid_search.best_estimator_
+#+end_src
+The evaluation scores. Test scores for each combination of hyperparameters and
+for each cross-validation split, as well as the mean test score across all
+splits (RMSE in this case).
+#+begin_src python
+cv_res = pd.DataFrame(grid_search.cv_results_)
+cv_res.sort_values(by="mean_test_score", ascending=False, inplace=True)
+#+end_src
 **** Randomized Search
+For each hyperparameter, you must provide either a list of possible values, or a probability distribution
+#+begin_src python
+from sklearn.model_selection import RandomizedSearchCV
+from scipy.stats import randint
+
+param_distribs = {'preprocessing__geo__n_clusters': randint(low=3, high=50),
+                  'random_forest__max_features': randint(low=2, high=20)}
+
+rnd_search = RandomizedSearchCV(
+    full_pipeline, param_distributions=param_distribs, n_iter=10, cv=3,
+    scoring='neg_root_mean_squared_error', random_state=42)
+
+rnd_search.fit(housing, housing_labels)
+#+end_src
+Scikit-Learn also has HalvingRandomSearchCV and HalvingGridSearchCV. The goal is to use the computational resources more efficiently.
 **** Ensemble Methods
 **** Analyzing the Best Models and Their Errors
+RandomForestRegressor can indicate the relative importance of each attribute for making accurate predictions:
+#+begin_src python
+final_model = rnd_search.best_estimator_ # includes preprocessing
+feature_importances = final_model["random_forest"].feature_importances_
+#+end_src
+Display importance scores next to their corresponding attribute names:
+#+begin_src python
+sorted(zip(feature_importances,
+           final_model["preprocessing"].get_feature_names_out()), reverse=True)
+#+end_src
+sklearn.feature_selection.SelectFromModel transformer can automatically drop the least useful features for you.
 **** Evaluate Your System on the Test Set
 *** Launch, Monitor, and Maintain Your System
 *** Try It Out!
 *** Exercises
+1. Try a support vector machine regressor (sklearn.svm.SVR) with various hyperparameters, such as kernel="linear" (with various values for the C hyperparameter) or kernel="rbf" (with various values for the C and gamma hyperparameters). Note that support vector machines don’t scale well to large datasets, so you should probably train your model on just the first 5,000 instances of the training set and use only 3-fold cross-validation, or else it will take hours. Don’t worry about what the hyperparameters mean for now; we’ll discuss them in Chapter 5. How does the best SVR predictor perform?
+2. Try replacing the GridSearchCV with a RandomizedSearchCV.
+3. Try adding a SelectFromModel transformer in the preparation pipeline to select only the most important attributes.
+4. Try creating a custom transformer that trains a k-nearest neighbors regressor (sklearn.neighbors.KNeighborsRegressor) in its fit() method, and outputs the model’s predictions in its transform() method. Then add this feature to the preprocessing pipeline, using latitude and longitude as the inputs to this transformer. This will add a feature in the model that corresponds to the housing median price of the nearest districts.
+5. Automatically explore some preparation options using GridSearchCV.
+6. Try to implement the StandardScalerClone class again from scratch, then add support for the inverse_transform() method: executing scaler. inverse_transform(scaler.fit_transform(X)) should return an array very close to X. Then add support for feature names: set feature_names_in_ in the fit() method if the input is a DataFrame. This attribute should be a NumPy array of column names. Lastly, implement the get_feature_names_out() method: it should have one optional input_features=None argument. If passed, the method should check that its length matches n_features_in_, and it should match feature_names_in_ if it is defined; then input_features should be returned. If input_features is None, then the method should either return feature_names_in_ if it is defined or np.array(["x0", "x1", ...]) with length n_features_in_ otherwise.
 ** 3. Classification
 *** MNIST
 *** Training a Binary Classifier
