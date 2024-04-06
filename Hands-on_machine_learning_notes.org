@@ -545,10 +545,63 @@ predictions = final_model_reloaded.predict(new_data)
 ** 3. Classification
 *** MNIST
 *** Training a Binary Classifier
+#+begin_src python
+from sklearn.linear_model import SGDClassifier
+
+sgd_clf = SGDClassifier(random_state=42)
+sgd_clf.fit(X_train, y_train_5)
+#+end_src
 *** Performance Measures
 **** Measuring Accuracy Using Cross-Validation
+#+begin_src python
+from sklearn.model_selection import cross_val_score
+
+cross_val_score(sgd_clf, X_train, y_train_5, cv=3, scoring="accuracy")
+
+from sklearn.dummy import DummyClassifier
+#+end_src
+Accuracy is generally not the preferred performance measure for classifiers. A much better way to evaluate the performance of a classifier is to look at the confusion matrix.
 **** Confusion Matrices
+#+begin_src python
+from sklearn.model_selection import cross_val_predict
+
+y_train_pred = cross_val_predict(sgd_clf, X_train, y_train_5, cv=3)
+#+end_src
+The model makes predictions on data that it never saw during training.
+
+#+begin_src python
+from sklearn.metrics import confusion_matrix
+
+cm = confusion_matrix(y_train_5, y_train_pred)
+#+end_src
+*Row:* an actual class, *column:* a predicted class.
+|                    | *predicted as negative*             | *predicted as positive*            |
+|--------------------+-------------------------------------+------------------------------------|
+| *actualy negative* | true negative (TN)                  | false positive (FP), type I errors |
+| *actualy positive* | false negative (FN), type II errors | true positive (TP)                 |
+- \(\text{precision} = \frac{TP}{(TP + FP)}\)
+- \(\text{recall (sensitivity, the true positive rate (TPR))} = \frac{TP}{(TP + FN)}\)
+[[./img/3-3.png]]
+Figure 3-3. An illustrated confusion matrix showing examples of true negatives
+(top left), false positives (top right), false negatives (lower left), and true
+positives (lower right)
 **** Precision and Recall
+#+begin_src python
+from sklearn.metrics import precision_score, recall_score
+from sklearn.metrics import f1_score
+
+precision_score(y_train_5, y_train_pred) # == 3530 / (687 + 3530)
+recall_score(y_train_5, y_train_pred) # == 3530 / (1891 + 3530)
+f1_score(y_train_5, y_train_pred)
+#+end_src
+The F1 score is the harmonic mean of precision and recall. The harmonic mean gives much more weight to low values.
+
+F1 = 2/((1/precision)+(1/recall)) = 2*(precision*recall)/(precision+recall) = TP/(TP+(FN+FP)/2)
+
+\(F_1 =
+\frac{2}{\frac{1}{\text{precision}}+\frac{1}{\text{recall}}} =
+2 \times \frac{\text{precision}\times\text{recall}}{\text{precision} + \text{recall}} =
+\frac{TP}{TP+\frac{FN+FP}{2}}\)
 **** The Precision/Recall Trade-off
 **** The ROC Curve
 *** Multiclass Classification
